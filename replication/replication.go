@@ -84,7 +84,7 @@ func postReplication(repl couchReplicationPayload) *nerr.E {
 	return nerr.Translate(err).Addf("Couldn't post replication document")
 }
 
-func ScheduleReplication(db string) *nerr.E {
+func ScheduleReplication(db string, continuous bool) *nerr.E {
 	replID := fmt.Sprintf("auto_%v", db)
 
 	//check to see if a replication for this database is already running. If so. check the state.
@@ -103,7 +103,7 @@ func ScheduleReplication(db string) *nerr.E {
 		Source:       fmt.Sprintf("%v/%v", insertReplCreds(os.Getenv("COUCH_REPL_ADDR")), db),
 		Target:       fmt.Sprintf("%v/%v", insertLocalCreds(os.Getenv("COUCH_ADDR")), db),
 		CreateTarget: true,
-		Continuous:   false,
+		Continuous:   continuous,
 	}
 
 	err = postReplication(rdoc)

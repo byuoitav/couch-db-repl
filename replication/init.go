@@ -14,6 +14,8 @@ import (
 	"github.com/byuoitav/common/nerr"
 )
 
+var DefaultReplConfig DatabaseConfig
+
 func init() {
 
 	addr := os.Getenv("COUCH_ADDR")
@@ -64,6 +66,12 @@ func init() {
 			}
 		}
 	}
+
+	//setup the default config
+
+	DefaultReplConfig.Database = REPL_CONFIG_DB
+	DefaultReplConfig.Continuous = false
+	DefaultReplConfig.Interval = 300
 
 }
 
@@ -116,6 +124,7 @@ func Start() *nerr.E {
 	}
 
 	//we have the config - we can go ahead and schedule the updates
+	StartReplicationJobs(config)
 }
 
 func CheckDB(db string) *nerr.E {

@@ -84,3 +84,29 @@ func GetConfigDoc(id string) (ReplicationConfig, *nerr.E) {
 
 	return toReturn, nil
 }
+
+func CheckHostConfigEquality(a, b HostConfig) bool {
+	if a.Hostname != b.Hostname {
+		return false
+	}
+	if len(a.Replications) != len(b.Replications) {
+		return false
+	}
+	for i := range a.Replications {
+		if !CheckDBConfigEquality(a.Replications[i], b.Replications[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func CheckDBConfigEquality(a, b DatabaseConfig) bool {
+	if a.Database != b.Database {
+		return false
+	}
+	if a.Interval != b.Interval {
+		return false
+	}
+	return a.Continuous == b.Continuous
+}
