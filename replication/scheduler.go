@@ -1,6 +1,7 @@
 package replication
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -46,6 +47,8 @@ func RunRegular(config DatabaseConfig, configChannel chan DatabaseConfig, wg *sy
 				config = newConf
 				if !closed {
 					log.L.Warnf("Replication for %v is ending", config.Database)
+					deleteReplication(fmt.Sprintf("auto_%v", config.Database))
+
 					return nil
 				}
 			}
@@ -56,6 +59,8 @@ func RunRegular(config DatabaseConfig, configChannel chan DatabaseConfig, wg *sy
 			case newConf, closed := <-configChannel:
 				if !closed {
 					log.L.Warnf("Replication for %v is ending", config.Database)
+					deleteReplication(fmt.Sprintf("auto_%v", config.Database))
+
 					return nil
 				}
 				config = newConf
@@ -115,38 +120,40 @@ func RunConfig(curConfig HostConfig, config DatabaseConfig, wg *sync.WaitGroup, 
 				config.Interval = 60
 			}
 		} else {
+			changes := true
 
 			//we need to check if the configurations are equal
 			if CheckHostConfigEquality(newGlobalConf, curConfig) {
 				//we're the same
-				continue
+				changes = false
 			}
+			if changes == false {
 
-			curConfig = newGlobalConf
+				curConfig = newGlobalConf
 
-			//this will redo everyone else
-			UpdateConfigurations(curConfig, configChannels, wg)
+				//this will redo everyone else
+				UpdateConfigurations(curConfig, configChannels, wg)
 
-			found := false
-			//we need to go through and update our configuration
-			for _, v := range curConfig.Replications {
-				if v.Database == REPL_CONFIG_DB {
-					config = v
-					found = true
-					break
+				found := false
+				//we need to go through and update our configuration
+				for _, v := range curConfig.Replications {
+					if v.Database == REPL_CONFIG_DB {
+						config = v
+						found = true
+						break
+					}
 				}
-			}
 
-			if found {
-				continue
-			}
+				if found {
+					continue
+				}
 
-			//we need to grab the default config
-			config = DefaultReplConfig
+				//we need to grab the default config
+				config = DefaultReplConfig
+			}
 		}
 
 		//start a timer
-
 		log.L.Debugf("Done for %v. Will run again in %v seconds", config.Database, config.Interval)
 
 		t := time.NewTimer(time.Duration(config.Interval) * time.Second)
@@ -187,8 +194,9 @@ func UpdateConfigurations(config HostConfig, channels map[string]chan DatabaseCo
 	//now we need to go stop any replications that are no longer in the config
 	for k, v := range channels {
 		if _, ok := valsInConfig[k]; !ok {
-			log.L.Infof("stoppping replication job for %v", v)
+			log.L.Infof("stoppping replication job for %v", k)
 			close(v)
+			delete(channels, k)
 		}
 	}
 

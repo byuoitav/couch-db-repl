@@ -108,6 +108,7 @@ func ScheduleReplication(db string, continuous bool) *nerr.E {
 
 	err = postReplication(rdoc)
 	if err == nil {
+		l.L.Debugf("Replication for %v started successfully", db)
 		return nil
 	}
 	switch err.Type {
