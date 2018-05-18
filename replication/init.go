@@ -14,11 +14,14 @@ import (
 	"github.com/byuoitav/common/nerr"
 )
 
-func A() {
+func init() {
 
 	addr := os.Getenv("COUCH_ADDR")
 	if len(addr) < 1 {
 		l.L.Fatal("No COUCH_ADDR specified")
+	}
+	if len(os.Getenv("COUCH_REPL_ADDR")) < 1 || len(os.Getenv("COUCH_REPL_ADDR")) < 1 || len(os.Getenv("COUCH_REPL_ADDR")) < 1 {
+		l.L.Fatal("Remote environment variables are not declared.")
 	}
 
 	l.L.Debugf("Checking to see if couch server is up at %v", addr)
@@ -38,10 +41,9 @@ func A() {
 		}
 	}
 
-	//check to see if we need to create all the metadata databases
+	//check to see if we need to create all the databases
 	db := []string{
 		"_global_changes",
-		"_metadata",
 		"_replicator",
 		"_users",
 	}
@@ -52,11 +54,11 @@ func A() {
 			if err.Type == "not_found" {
 				err := CreateDB(d)
 				if err != nil {
-					l.L.Debug("%s", err.Stack)
+					l.L.Debugf("%s", err.Stack)
 					l.L.Fatal(err.Addf("Couldn't initialize database %v", db))
 				}
 			} else {
-				l.L.Debug("%s", err.Stack)
+				l.L.Debugf("%s", err.Stack)
 				l.L.Fatal(err.Addf("Couldn't validate/create meta database %s", db))
 				os.Exit(1)
 			}
@@ -65,10 +67,61 @@ func A() {
 
 }
 
+const (
+	WAIT_LIMIT = 60
+)
+
+//Start is the entry point, this pulls down the _replication-config database, then acts on it to schedule replications
+//of all other databases applicable for this host
+func Start() *nerr.E {
+	l.L.Info("Starting replication scheduler")
+
+	//check to see if the configdb is already down
+	err := CheckDB(REPL_CONFIG_DB)
+	if err != nil {
+		err := ScheduleReplication(REPL_CONFIG_DB)
+		if err != nil {
+			l.L.Debugf("%s", err.Stack)
+			l.L.Fatal(err.Add("_replication-config database isn't present and we can't start replication"))
+		}
+
+		tries := 0
+		for {
+			log.Printf("Waiting for replication to succeed")
+
+			if tries >= WAIT_LIMIT {
+				l.L.Fatal("Exceeded retry limit for pulling down the replication config database.")
+			}
+			//waiting for the config db to replicate down
+			state, err := CheckReplication(REPL_CONFIG_DB)
+			if err != nil {
+				l.L.Debugf("%s", err.Stack)
+				l.L.Fatal(err.Add("_replication-config database replication failed, cannot start replication"))
+			}
+			if state != "completed" {
+				break
+			}
+			if state == "failed" {
+				l.L.Fatal("Replication of replication config database has failed.")
+			}
+			time.Sleep(1 * time.Second)
+			tries++
+		}
+	}
+
+	//Config database is there. Check for a document for this room, if none, get the default
+	config, err := GetConfig(os.Getenv("PI_HOSTNAME"))
+	if err != nil {
+		return err.Add("Error getting the replication config while starting")
+	}
+
+	//we have the config - we can go ahead and schedule the updates
+}
+
 func CheckDB(db string) *nerr.E {
 	l.L.Debugf("Checking for DB %v", db)
 
-	req, err := http.NewRequest("GET", os.Getenv("COUCH_ADDR"), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%v/%v", os.Getenv("COUCH_ADDR"), db), nil)
 	if err != nil {
 		return nerr.Translate(err).Add("Couldn't create request")
 	}

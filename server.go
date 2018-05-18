@@ -1,20 +1,14 @@
 package main
 
 import (
-	"log"
-	"net/http"
-
+	"github.com/byuoitav/common/log"
 	"github.com/byuoitav/couch-db-repl/replication"
 )
 
 func main() {
-	resp, err := http.Get("http://localhost:5984/")
+	err := replication.Start()
 	if err != nil {
-		log.Printf("%v", err.Error())
-	} else {
-		log.Printf("%v", resp.StatusCode)
+		log.L.Error(err)
 
 	}
-	replication.A()
-	replication.Check()
 }
