@@ -87,7 +87,7 @@ func Start() *nerr.E {
 	//check to see if the configdb is already down
 	err := CheckDB(REPL_CONFIG_DB)
 	if err != nil {
-		err := ScheduleReplication(REPL_CONFIG_DB)
+		err := ScheduleReplication(REPL_CONFIG_DB, false)
 		if err != nil {
 			l.L.Debugf("%s", err.Stack)
 			l.L.Fatal(err.Add("_replication-config database isn't present and we can't start replication"))
@@ -125,6 +125,7 @@ func Start() *nerr.E {
 
 	//we have the config - we can go ahead and schedule the updates
 	StartReplicationJobs(config)
+	return nil
 }
 
 func CheckDB(db string) *nerr.E {
