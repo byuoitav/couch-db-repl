@@ -127,7 +127,8 @@ func RunConfig(curConfig HostConfig, config DatabaseConfig, wg *sync.WaitGroup, 
 				//we're the same
 				changes = false
 			}
-			if changes == false {
+			if changes == true {
+				log.L.Debugf("%v === %v", newGlobalConf, curConfig)
 
 				curConfig = newGlobalConf
 
@@ -171,6 +172,7 @@ func UpdateConfigurations(config HostConfig, channels map[string]chan DatabaseCo
 		if c.Database == REPL_CONFIG_DB {
 			continue
 		}
+		valsInConfig[c.Database] = true
 
 		//we go through and update/create as needed
 		v, ok := channels[c.Database]
@@ -188,7 +190,6 @@ func UpdateConfigurations(config HostConfig, channels map[string]chan DatabaseCo
 			channels[c.Database] = newChan
 		}
 
-		valsInConfig[c.Database] = true
 	}
 
 	//now we need to go stop any replications that are no longer in the config
