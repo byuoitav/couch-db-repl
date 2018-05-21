@@ -15,3 +15,5 @@ Repository that handles the replciation of a couchdb databases for BYU's PiPlatf
     Password of the remote (source) couch server
 - COUCH_REPL_USER
     Username of the remote (source) couch server
+- PI_HOSTHAME
+- LOCAL_ENVIRONMENT
