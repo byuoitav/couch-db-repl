@@ -12,7 +12,7 @@
 
 FROM arm32v6/alpine
 
-COPY ./couch-db-arm ./couch-db
+COPY ./couch-db-repl-arm ./couch-db
 
 ENTRYPOINT [ "./couchdb" ] 
 
