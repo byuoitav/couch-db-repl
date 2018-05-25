@@ -1,7 +1,7 @@
 version: '3'
 services:
     couch-db-repl:
-        image: byuoitav/rpi-couch-db-repl:devleopment
+        image: byuoitav/rpi-couch-db-repl:development
         ports:
             - "7012:7012"
         environment:
