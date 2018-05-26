@@ -51,7 +51,7 @@ func GetConfig(hostname string) (HostConfig, *nerr.E) {
 				return toReturn, nerr.Translate(err).Add("Couldn't get the default or room specific configuration")
 			}
 		}
-		return toReturn, nerr.Translate(err).Add("Couldn't get the configuration")
+		return toReturn, nerr.Add("Couldn't get the configuration")
 	}
 	//now we go through and check all of the rules one by one to see which matches my hostname
 	for _, rule := range config.Rules {
