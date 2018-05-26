@@ -84,8 +84,9 @@ const (
 func Start() *nerr.E {
 	l.L.Info("Starting replication scheduler")
 
-	//check to see if the configdb is already down
 	err := CheckDB(REPL_CONFIG_DB)
+
+	//check to see if the configdb is already down
 	if err != nil {
 		err := ScheduleReplication(REPL_CONFIG_DB, false)
 		if err != nil {
