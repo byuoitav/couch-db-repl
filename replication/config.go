@@ -46,7 +46,7 @@ func GetConfig(hostname string) (HostConfig, *nerr.E) {
 		if err.Type == "*couch.NotFound" {
 			l.L.Debug("Couldn't get a room specific configuration, getting the default")
 			//get the default
-			config, err = GetConfigDoc("_default")
+			config, err = GetConfigDoc("default")
 			if err != nil {
 				return toReturn, nerr.Translate(err).Add("Couldn't get the default or room specific configuration")
 			}
