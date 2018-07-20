@@ -5,6 +5,7 @@ import (
 
 	"github.com/byuoitav/authmiddleware"
 	"github.com/byuoitav/common/log"
+	"github.com/byuoitav/couch-db-repl/handlers"
 	"github.com/byuoitav/couch-db-repl/replication"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
@@ -31,6 +32,8 @@ func main() {
 
 	secure.PUT("/log-level/:level", log.SetLogLevel)
 	secure.GET("/log-level", log.GetLogLevel)
+
+	secure.GET("/replication/start", handlers.ReplicateNow)
 
 	server := http.Server{
 		Addr:           port,
