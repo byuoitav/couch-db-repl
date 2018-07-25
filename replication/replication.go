@@ -37,6 +37,22 @@ type couchReplicationPayload struct {
 	Selector     interface{} `json:"selector,omitempty"`
 }
 
+func ReplicateNow() *nerr.E {
+
+	//Config database is there. Check for a document for this room, if none, get the default
+	config, err := GetConfig(os.Getenv("PI_HOSTNAME"))
+	if err != nil {
+		return err.Add("Error getting the replication config, could not start immediate replication.")
+	}
+
+	//we have the config - we can go ahead and schedule the updates
+	for i := range config.Replications {
+		ScheduleReplication(config.Replications[i].Database, false)
+	}
+
+	return nil
+}
+
 func postReplication(repl couchReplicationPayload) *nerr.E {
 	l.L.Debugf("Posting replication of %v", repl.ID)
 
