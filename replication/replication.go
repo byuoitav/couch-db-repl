@@ -39,6 +39,11 @@ type couchReplicationPayload struct {
 
 func ReplicateNow() *nerr.E {
 
+	if len(os.Getenv("STOP_REPLICATION")) > 0 {
+		l.L.Infof("Not replicating due to the stop replication env variable")
+		return nil
+	}
+
 	//Config database is there. Check for a document for this room, if none, get the default
 	config, err := GetConfig(os.Getenv("PI_HOSTNAME"))
 	if err != nil {
