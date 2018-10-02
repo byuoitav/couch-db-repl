@@ -83,6 +83,12 @@ const (
 //of all other databases applicable for this host
 func Start() *nerr.E {
 	l.L.Info("Starting replication scheduler")
+	//if we don't want to replicate, stop now.
+
+	if len(os.Getenv("STOP_REPLICATION")) > 0 {
+		l.L.Info("Stopping replication")
+		return nil
+	}
 
 	err := CheckDB(REPL_CONFIG_DB)
 
