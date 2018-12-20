@@ -17,6 +17,7 @@ import (
 var DefaultReplConfig DatabaseConfig
 
 func init() {
+	l.SetLevel("debug")
 
 	addr := os.Getenv("COUCH_ADDR")
 	if len(addr) < 1 {
@@ -26,14 +27,14 @@ func init() {
 		l.L.Fatal("Remote environment variables are not declared.")
 	}
 
-	l.L.Debugf("Checking to see if couch server is up at %v", addr)
+	l.L.Infof("Checking to see if couch server is up at %v", addr)
 	//wait until the couch server is running
 	for {
 		resp, err := http.Get("http://localhost:5984/")
 		//resp, err := http.Get("http://www.google.com")
 		if err != nil {
 			l.L.Info("Waiting for Couch to start...")
-			l.L.Debugf("Error: %v", err.Error())
+			l.L.Infof("Error: %v", err.Error())
 			time.Sleep(3 * time.Second)
 			continue
 		} else {
@@ -83,6 +84,12 @@ const (
 //of all other databases applicable for this host
 func Start() *nerr.E {
 	l.L.Info("Starting replication scheduler")
+	//if we don't want to replicate, stop now.
+
+	if len(os.Getenv("STOP_REPLICATION")) > 0 {
+		l.L.Info("Stopping replication")
+		return nil
+	}
 
 	err := CheckDB(REPL_CONFIG_DB)
 
