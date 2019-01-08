@@ -30,7 +30,7 @@ func init() {
 	l.L.Infof("Checking to see if couch server is up at %v", addr)
 	//wait until the couch server is running
 	for {
-		resp, err := http.Get("http://localhost:5984/")
+		resp, err := http.Get(addr)
 		//resp, err := http.Get("http://www.google.com")
 		if err != nil {
 			l.L.Info("Waiting for Couch to start...")
