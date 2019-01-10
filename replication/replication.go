@@ -35,7 +35,16 @@ type couchReplicationPayload struct {
 	CreateTarget bool        `json:"create_target"`
 	Continuous   bool        `json:"continous"`
 	Selector     interface{} `json:"selector,omitempty"`
+	Filter       string      `json:"filter"`
 }
+
+var PI_HOSTNAME = os.Getenv("PI_HOSTNAME")
+var COUCH_ADDR = os.Getenv("COUCH_ADDR")
+var COUCH_USER = os.Getenv("COUCH_USER")
+var COUCH_PASS = os.Getenv("COUCH_PASS")
+var COUCH_REPL_ADDR = os.Getenv("COUCH_REPL_ADDR")
+var COUCH_REPL_USER = os.Getenv("COUCH_REPL_USER")
+var COUCH_REPL_PASS = os.Getenv("COUCH_REPL_PASS")
 
 func ReplicateNow() *nerr.E {
 
@@ -45,7 +54,7 @@ func ReplicateNow() *nerr.E {
 	}
 
 	//Config database is there. Check for a document for this room, if none, get the default
-	config, err := GetConfig(os.Getenv("PI_HOSTNAME"))
+	config, err := GetConfig(PI_HOSTNAME)
 	if err != nil {
 		return err.Add("Error getting the replication config, could not start immediate replication.")
 	}
@@ -67,14 +76,14 @@ func postReplication(repl couchReplicationPayload) *nerr.E {
 		return nerr.Translate(err).Addf("Couldn't marshal payload to start replication for %v", repl.ID)
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%v/_replicator", os.Getenv("COUCH_ADDR")), bytes.NewReader(b))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%v/_replicator", COUCH_ADDR), bytes.NewReader(b))
 	if err != nil {
 		return nerr.Translate(err).Addf("Couldn't create request to start replication of %v", repl.ID)
 	}
 
 	req.Header.Add("Content-Type", "application/json")
 
-	req.SetBasicAuth(os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
+	req.SetBasicAuth(COUCH_USER, COUCH_PASS)
 	c := http.Client{}
 	resp, err := c.Do(req)
 	if err != nil {
@@ -110,21 +119,34 @@ func ScheduleReplication(db string, continuous bool) *nerr.E {
 
 	//check to see if a replication for this database is already running. If so. check the state.
 	status, err := CheckReplication(replID)
+
 	if err != nil {
 		return err.Addf("Couldn't schedule replication of %v", db)
 	}
+
 	if status == "running" || status == "started" || status == "added" {
 		return nerr.Create(fmt.Sprintf("Replication for %v running. In state %v.", db, status), "duplicate_repl")
 	}
+
 	l.L.Debugf("Replication state: %v", status)
+
+	//check to make sure the filter is there
+	filterName := fmt.Sprintf("filters/%v", replID)
+	err = CheckForReplicationFilter(db)
+
+	if err == nil {
+		l.L.Debugf("Error when checking for filter for %v", db)
+		filterName = ""
+	}
 
 	//we can create the replication
 	rdoc := couchReplicationPayload{
 		ID:           replID,
-		Source:       fmt.Sprintf("%v/%v", insertReplCreds(os.Getenv("COUCH_REPL_ADDR")), db),
-		Target:       fmt.Sprintf("%v/%v", insertLocalCreds(os.Getenv("COUCH_ADDR")), db),
+		Source:       fmt.Sprintf("%v/%v", insertReplCreds(COUCH_REPL_ADDR), db),
+		Target:       fmt.Sprintf("%v/%v", insertLocalCreds(COUCH_ADDR), db),
 		CreateTarget: true,
 		Continuous:   continuous,
+		Filter:       filterName,
 	}
 
 	err = postReplication(rdoc)
@@ -150,15 +172,65 @@ func ScheduleReplication(db string, continuous bool) *nerr.E {
 
 }
 
+func CheckForReplicationFilter(db string) *nerr.E {
+	l.L.Debugf("Checking to see if replication filter for %v exists", db)
+
+	jsonBytes := []byte("{\"_id\": \"_design/filters\", \"filters\": { \"deletedfilter\": \"function(doc, req) { return !doc._deleted; };\" } }")
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("%v/%v/_design/filter", COUCH_ADDR, db), bytes.NewReader(jsonBytes))
+	if err != nil {
+		return nerr.Translate(err).Addf("Couldn't create request to check existence of filter in %v", db)
+	}
+
+	req.SetBasicAuth(COUCH_USER, COUCH_PASS)
+	req.Header.Add("Content-Type", "application/json")
+
+	c := http.Client{}
+	resp, err := c.Do(req)
+	if err != nil {
+		return nerr.Translate(err).Addf("Couldn't make request to check existence of filter in %v", db)
+	}
+
+	defer resp.Body.Close()
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nerr.Translate(err).Addf("Couldn't read response from couch server while check existence of filter in %v", db)
+	}
+
+	l.L.Debugf("Response received from couch: %v", b)
+
+	if resp.StatusCode == 404 {
+		//we need to go ahead and create one
+		req, err := http.NewRequest("POST", fmt.Sprintf("%v/%v/_design/filter", COUCH_ADDR, db), nil)
+		if err != nil {
+			return nerr.Translate(err).Addf("Couldn't create request to poset new filter in %v", db)
+		}
+
+		req.SetBasicAuth(COUCH_USER, COUCH_PASS)
+		c := http.Client{}
+		resp, err := c.Do(req)
+		if err != nil {
+			return nerr.Translate(err).Addf("Couldn't make request to check existence of filter in %v", db)
+		}
+
+		if resp.StatusCode/100 != 2 {
+			return nerr.Translate(err).Addf("Non-200 response code when creating filter for %v", db)
+		}
+	}
+
+	return nil
+
+}
+
 func CheckReplication(replID string) (string, *nerr.E) {
 	l.L.Debugf("Checking to see if replication document %v is already scheduled", replID)
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%v/_scheduler/docs/_replicator/%v", os.Getenv("COUCH_ADDR"), replID), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%v/_scheduler/docs/_replicator/%v", COUCH_ADDR, replID), nil)
 	if err != nil {
 		return "", nerr.Translate(err).Addf("Couldn't create request to check replication of %v", replID)
 	}
 
-	req.SetBasicAuth(os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
+	req.SetBasicAuth(COUCH_USER, COUCH_PASS)
 	c := http.Client{}
 	resp, err := c.Do(req)
 	if err != nil {
@@ -214,12 +286,12 @@ func getReplication(id string) (couchReplicationPayload, *nerr.E) {
 	toReturn := couchReplicationPayload{}
 	l.L.Debugf("Getting replication %v", id)
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%v/_replicator/%v", os.Getenv("COUCH_ADDR"), id), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%v/_replicator/%v", COUCH_ADDR, id), nil)
 	if err != nil {
 		return toReturn, nerr.Translate(err).Addf("Couldn't get replication %v", id)
 	}
 
-	req.SetBasicAuth(os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
+	req.SetBasicAuth(COUCH_USER, COUCH_PASS)
 	c := http.Client{}
 	resp, err := c.Do(req)
 	if err != nil {
@@ -258,12 +330,12 @@ func deleteReplication(id string) *nerr.E {
 		return err.Addf("Couldn't delete replication %v", id)
 	}
 
-	req, rerr := http.NewRequest("DELETE", fmt.Sprintf("%v/_replicator/%v?rev=%v", os.Getenv("COUCH_ADDR"), id, repl.Rev), nil)
+	req, rerr := http.NewRequest("DELETE", fmt.Sprintf("%v/_replicator/%v?rev=%v", COUCH_ADDR, id, repl.Rev), nil)
 	if rerr != nil { //"real" error
 		return nerr.Translate(rerr).Addf("Couldn't delete replication %v", id)
 	}
 
-	req.SetBasicAuth(os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
+	req.SetBasicAuth(COUCH_USER, COUCH_PASS)
 	c := http.Client{}
 	resp, rerr := c.Do(req)
 	if rerr != nil {
@@ -279,11 +351,11 @@ func deleteReplication(id string) *nerr.E {
 }
 
 func insertLocalCreds(address string) string {
-	return insertCreds(address, os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
+	return insertCreds(address, COUCH_USER, COUCH_PASS)
 }
 
 func insertReplCreds(address string) string {
-	return insertCreds(address, os.Getenv("COUCH_REPL_USER"), os.Getenv("COUCH_REPL_PASS"))
+	return insertCreds(address, COUCH_REPL_USER, COUCH_REPL_PASS)
 }
 
 func insertCreds(address, user, pass string) string {
