@@ -197,7 +197,7 @@ func CheckForReplicationFilter(db string) *nerr.E {
 		return nerr.Translate(err).Addf("Couldn't read response from couch server while check existence of filter in %v", db)
 	}
 
-	l.L.Debugf("Response received from couch: %v", b)
+	l.L.Debugf("Response received from couch: %s", b)
 
 	if resp.StatusCode == 404 {
 		//we need to go ahead and create one
@@ -210,11 +210,19 @@ func CheckForReplicationFilter(db string) *nerr.E {
 		c := http.Client{}
 		resp, err := c.Do(req)
 		if err != nil {
-			return nerr.Translate(err).Addf("Couldn't make request to check existence of filter in %v", db)
+			return nerr.Translate(err).Addf("Couldn't make request to post new filter in %v", db)
 		}
 
+		defer resp.Body.Close()
+		createFilterResponseBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nerr.Translate(err).Addf("Couldn't read response from couch server while posting new filter in %v", db)
+		}
+
+		l.L.Debugf("Response received from couch: %s", createFilterResponseBody)
+
 		if resp.StatusCode/100 != 2 {
-			return nerr.Translate(err).Addf("Non-200 response code when creating filter for %v", db)
+			return nerr.Create(fmt.Sprintf("Non-200 response code when creating filter for %v", db), "response-received")
 		}
 	}
 
