@@ -91,39 +91,7 @@ func Start() *nerr.E {
 		return nil
 	}
 
-	err := CheckDB(REPL_CONFIG_DB)
-
-	//check to see if the configdb is already down
-	if err != nil {
-		err := ScheduleReplication(REPL_CONFIG_DB, false)
-		if err != nil {
-			l.L.Debugf("%s", err.Stack)
-			l.L.Fatal(err.Add("_replication-config database isn't present and we can't start replication"))
-		}
-
-		tries := 0
-		for {
-			log.Printf("Waiting for replication to succeed")
-
-			if tries >= WAIT_LIMIT {
-				l.L.Fatal("Exceeded retry limit for pulling down the replication config database.")
-			}
-			//waiting for the config db to replicate down
-			state, err := CheckReplication(REPL_CONFIG_DB)
-			if err != nil {
-				l.L.Debugf("%s", err.Stack)
-				l.L.Fatal(err.Add("_replication-config database replication failed, cannot start replication"))
-			}
-			if state != "completed" {
-				break
-			}
-			if state == "failed" {
-				l.L.Fatal("Replication of replication config database has failed.")
-			}
-			time.Sleep(1 * time.Second)
-			tries++
-		}
-	}
+	ReplicateReplicationConfig()
 
 	//Config database is there. Check for a document for this room, if none, get the default
 	config, err := GetConfig(os.Getenv("PI_HOSTNAME"))
@@ -134,6 +102,37 @@ func Start() *nerr.E {
 	//we have the config - we can go ahead and schedule the updates
 	StartReplicationJobs(config)
 	return nil
+}
+
+func ReplicateReplicationConfig() {
+	err := ScheduleReplication(REPL_CONFIG_DB, false)
+	if err != nil {
+		l.L.Debugf("%s", err.Stack)
+		l.L.Fatal(err.Add("_replication-config database isn't present and we can't start replication"))
+	}
+
+	tries := 0
+	for {
+		log.Printf("Waiting for replication to succeed")
+
+		if tries >= WAIT_LIMIT {
+			l.L.Fatal("Exceeded retry limit for pulling down the replication config database.")
+		}
+		//waiting for the config db to replicate down
+		state, err := CheckReplication(REPL_CONFIG_DB)
+		if err != nil {
+			l.L.Debugf("%s", err.Stack)
+			l.L.Fatal(err.Add("_replication-config database replication failed, cannot start replication"))
+		}
+		if state != "completed" {
+			break
+		}
+		if state == "failed" {
+			l.L.Fatal("Replication of replication config database has failed.")
+		}
+		time.Sleep(1 * time.Second)
+		tries++
+	}
 }
 
 func CheckDB(db string) *nerr.E {

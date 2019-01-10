@@ -183,7 +183,6 @@ func CheckForReplicationFilter(db string) *nerr.E {
 	}
 
 	req.SetBasicAuth(COUCH_USER, COUCH_PASS)
-	req.Header.Add("Content-Type", "application/json")
 
 	c := http.Client{}
 	resp, err := c.Do(req)
@@ -246,6 +245,7 @@ func CheckForReplicationFilter(db string) *nerr.E {
 			return nerr.Translate(err).Addf("Couldn't create request to poset new filter in %v", db)
 		}
 
+		req.Header.Add("Content-Type", "application/json")
 		req.SetBasicAuth(COUCH_USER, COUCH_PASS)
 		resp, err = c.Do(req)
 		if err != nil {
