@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/byuoitav/common/db/couch"
-	"github.com/byuoitav/common/jsonhttp"
 	l "github.com/byuoitav/common/log"
 	"github.com/byuoitav/common/nerr"
 )
@@ -133,12 +132,13 @@ func ScheduleReplication(db string, continuous bool) *nerr.E {
 
 	//check to make sure the filter is there
 	filterName := fmt.Sprintf("filters/%v", replID)
-	err = CheckForReplicationFilter(db)
+	/*
+		err = CheckForReplicationFilter(db)
 
-	if err == nil {
-		l.L.Debugf("Error when checking for filter for %v", db)
-		filterName = ""
-	}
+		if err == nil {
+			l.L.Debugf("Error when checking for filter for %v", db)
+			filterName = ""
+		}*/
 
 	//we can create the replication
 	rdoc := couchReplicationPayload{
@@ -173,6 +173,7 @@ func ScheduleReplication(db string, continuous bool) *nerr.E {
 
 }
 
+/*
 func CheckForReplicationFilter(db string) *nerr.E {
 	l.L.Debugf("Checking to see if replication filter for %v exists", db)
 
@@ -225,6 +226,7 @@ func CheckForReplicationFilter(db string) *nerr.E {
 
 	return nil
 }
+*/
 
 func CheckReplication(replID string) (string, *nerr.E) {
 	l.L.Debugf("Checking to see if replication document %v is already scheduled", replID)
