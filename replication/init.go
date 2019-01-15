@@ -99,6 +99,8 @@ func Start() *nerr.E {
 		return err.Add("Error getting the replication config while starting")
 	}
 
+	l.L.Debugf("Configuration document retrieved, %s replications retrieved", len(config.Replications))
+
 	//we have the config - we can go ahead and schedule the updates
 	StartReplicationJobs(config)
 	return nil
@@ -108,28 +110,35 @@ func ReplicateReplicationConfig() {
 	err := ScheduleReplication(REPL_CONFIG_DB, false)
 	if err != nil {
 		l.L.Debugf("%s", err.Stack)
-		l.L.Fatal(err.Add("_replication-config database isn't present and we can't start replication"))
+		l.L.Fatal(err.Add("replication-config database isn't present and we can't start replication"))
 	}
 
 	tries := 0
 	for {
-		l.L.Debugf("Waiting for replication to succeed")
+		l.L.Debugf("Waiting for replication for replication-config to succeed")
 
 		if tries >= WAIT_LIMIT {
-			l.L.Fatal("Exceeded retry limit for pulling down the replication config database.")
+			l.L.Fatal("Exceeded retry limit for pulling down the replication-config database.")
 		}
 		//waiting for the config db to replicate down
 		state, err := CheckReplication(REPL_CONFIG_DB)
+
 		if err != nil {
 			l.L.Debugf("%s", err.Stack)
-			l.L.Fatal(err.Add("_replication-config database replication failed, cannot start replication"))
+			l.L.Fatal(err.Add("replication-config database replication failed, cannot start replication"))
 		}
+
+		l.L.Debugf("State of %s db is %s", REPL_CONFIG_DB, state)
+
 		if state == "completed" {
+			l.L.Debugf("replication-config completed")
 			break
 		}
+
 		if state == "failed" {
 			l.L.Fatal("Replication of replication config database has failed.")
 		}
+
 		time.Sleep(1 * time.Second)
 		tries++
 	}
