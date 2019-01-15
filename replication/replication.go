@@ -180,9 +180,7 @@ func CheckForReplicationFilter(db string) *nerr.E {
 		"Authorization": "Basic " + jsonhttp.BasicAuth(COUCH_USER, COUCH_PASS),
 	}
 
-	json := "{\"_id\": \"_design/filters\", \"filters\": { \"deletedfilter\": \"function(doc, req) { return !doc._deleted; };\" } }"
-
-	responseBody, response, responseErr := jsonhttp.CreateAndExecuteJSONRequest("Check Existence of Filter", "GET", fmt.Sprintf("%v/%v/_design/filter", COUCH_ADDR, db), json, headers, 30, nil)
+	responseBody, response, responseErr := jsonhttp.CreateAndExecuteJSONRequest("Check Existence of Filter", "GET", fmt.Sprintf("%v/%v/_design/filter", COUCH_ADDR, db), "", headers, 30, nil)
 
 	if responseErr != nil {
 		return nerr.Translate(responseErr).Addf("Couldn't check existence of filter for database %v", db)
@@ -211,7 +209,8 @@ func CheckForReplicationFilter(db string) *nerr.E {
 
 		//we need to go ahead and create one
 		headers["Content-Type"] = "application/json"
-		responseBody, response, responseErr = jsonhttp.CreateAndExecuteJSONRequest("Create Filter Document", "PUT", fmt.Sprintf("%v/%v/_design/filter", COUCH_ADDR, db), "", headers, 30, nil)
+		json := "{\"_id\": \"_design/filters\", \"filters\": { \"deletedfilter\": \"function(doc, req) { return !doc._deleted; };\" } }"
+		responseBody, response, responseErr = jsonhttp.CreateAndExecuteJSONRequest("Create Filter Document", "PUT", fmt.Sprintf("%v/%v/_design/filter", COUCH_ADDR, db), json, headers, 30, nil)
 
 		if responseErr != nil {
 			return nerr.Translate(responseErr).Addf("Couldn't create filter document in db %v", db)
