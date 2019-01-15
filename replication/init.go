@@ -121,7 +121,8 @@ func ReplicateReplicationConfig() {
 			l.L.Fatal("Exceeded retry limit for pulling down the replication-config database.")
 		}
 		//waiting for the config db to replicate down
-		state, err := CheckReplication(REPL_CONFIG_DB)
+		replID := fmt.Sprintf("auto_%v", REPL_CONFIG_DB)
+		state, err := CheckReplication(replID)
 
 		if err != nil {
 			l.L.Debugf("%s", err.Stack)
