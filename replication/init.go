@@ -113,7 +113,7 @@ func ReplicateReplicationConfig() {
 
 	tries := 0
 	for {
-		log.Printf("Waiting for replication to succeed")
+		l.L.Debugf("Waiting for replication to succeed")
 
 		if tries >= WAIT_LIMIT {
 			l.L.Fatal("Exceeded retry limit for pulling down the replication config database.")
@@ -124,7 +124,7 @@ func ReplicateReplicationConfig() {
 			l.L.Debugf("%s", err.Stack)
 			l.L.Fatal(err.Add("_replication-config database replication failed, cannot start replication"))
 		}
-		if state != "completed" {
+		if state == "completed" {
 			break
 		}
 		if state == "failed" {

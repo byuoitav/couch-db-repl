@@ -75,6 +75,7 @@ func RunRegular(config DatabaseConfig, configChannel chan DatabaseConfig, wg *sy
 
 func RunConfig(curConfig HostConfig, config DatabaseConfig, wg *sync.WaitGroup, configChannels map[string]chan DatabaseConfig) *nerr.E {
 
+	log.L.Infof("Running config for %s", config.Database)
 	savedInterval := 0
 
 	defer wg.Done()
