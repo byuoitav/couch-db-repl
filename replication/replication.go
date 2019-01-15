@@ -210,6 +210,7 @@ func CheckForReplicationFilter(db string) *nerr.E {
 		}
 
 		//we need to go ahead and create one
+		headers["Content-Type"] = "application/json"
 		responseBody, response, responseErr = jsonhttp.CreateAndExecuteJSONRequest("Create Filter Document", "PUT", fmt.Sprintf("%v/%v/_design/filter", COUCH_ADDR, db), "", headers, 30, nil)
 
 		if responseErr != nil {
