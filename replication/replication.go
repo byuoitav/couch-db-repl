@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/byuoitav/common/db/couch"
+	"github.com/byuoitav/common/jsonhttp"
 	l "github.com/byuoitav/common/log"
 	"github.com/byuoitav/common/nerr"
 )
@@ -175,98 +176,54 @@ func ScheduleReplication(db string, continuous bool) *nerr.E {
 func CheckForReplicationFilter(db string) *nerr.E {
 	l.L.Debugf("Checking to see if replication filter for %v exists", db)
 
-	jsonBytes := []byte("{\"_id\": \"_design/filters\", \"filters\": { \"deletedfilter\": \"function(doc, req) { return !doc._deleted; };\" } }")
-
-	req, err := http.NewRequest("GET", fmt.Sprintf("%v/%v/_design/filter", COUCH_ADDR, db), bytes.NewReader(jsonBytes))
-	if err != nil {
-		return nerr.Translate(err).Addf("Couldn't create request to check existence of filter in %v", db)
+	headers := map[string]string{
+		"Authorization": "Basic " + jsonhttp.BasicAuth(COUCH_USER, COUCH_PASS),
 	}
 
-	req.SetBasicAuth(COUCH_USER, COUCH_PASS)
+	json := "{\"_id\": \"_design/filters\", \"filters\": { \"deletedfilter\": \"function(doc, req) { return !doc._deleted; };\" } }"
 
-	c := http.Client{}
-	resp, err := c.Do(req)
-	if err != nil {
-		return nerr.Translate(err).Addf("Couldn't make request to check existence of filter in %v", db)
+	responseBody, response, responseErr := jsonhttp.CreateAndExecuteJSONRequest("Check Existence of Filter", "GET", fmt.Sprintf("%v/%v/_design/filter", COUCH_ADDR, db), json, headers, 30, nil)
+
+	if responseErr != nil {
+		return nerr.Translate(responseErr).Addf("Couldn't check existence of filter for database %v", db)
 	}
 
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nerr.Translate(err).Addf("Couldn't read response from couch server while check existence of filter in %v", db)
-	}
+	l.L.Debugf("Response received from couch while checking filter: %s", responseBody)
 
-	l.L.Debugf("Response received from couch while checking filter: %s", b)
+	if response.StatusCode == 404 {
+		//Check if its already there
+		responseBody, response, responseErr = jsonhttp.CreateAndExecuteJSONRequest("Check Existence of Database", "HEAD", fmt.Sprintf("%v/%v", COUCH_ADDR, db), "", headers, 30, nil)
 
-	if resp.StatusCode == 404 {
-		//first check and see if the database exists or not
-		req, err := http.NewRequest("HEAD", fmt.Sprintf("%v/%v", COUCH_ADDR, db), nil)
-		if err != nil {
-			return nerr.Translate(err).Addf("Couldn't create request to check existence of database %v", db)
+		if responseErr != nil {
+			return nerr.Translate(responseErr).Addf("Couldn't check existence of database %v", db)
 		}
 
-		req.SetBasicAuth(COUCH_USER, COUCH_PASS)
-		c := http.Client{}
-		resp, err := c.Do(req)
-		if err != nil {
-			return nerr.Translate(err).Addf("Couldn't make request to check existence of database %v", db)
-		}
+		if response.StatusCode/100 == 4 {
+			//It isn't, create one
+			responseBody, response, responseErr = jsonhttp.CreateAndExecuteJSONRequest("Create Database", "PUT", fmt.Sprintf("%v/%v", COUCH_ADDR, db), "", headers, 30, nil)
 
-		defer resp.Body.Close()
-
-		if resp.StatusCode/100 == 4 {
-			//create the DB
-			req, err := http.NewRequest("PUT", fmt.Sprintf("%v/%v", COUCH_ADDR, db), nil)
-			if err != nil {
-				return nerr.Translate(err).Addf("Couldn't create request to create database %v", db)
+			if responseErr != nil {
+				return nerr.Translate(responseErr).Addf("Couldn't create database %v", db)
 			}
 
-			req.SetBasicAuth(COUCH_USER, COUCH_PASS)
-			c := http.Client{}
-			resp, err := c.Do(req)
-			if err != nil {
-				return nerr.Translate(err).Addf("Couldn't make request to create database %v", db)
-			}
-
-			defer resp.Body.Close()
-
-			createFilterResponseBody, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return nerr.Translate(err).Addf("Couldn't read response from couch server while create database %v", db)
-			}
-
-			l.L.Debugf("Response received from couch while create database: %s", createFilterResponseBody)
-
+			l.L.Debugf("Response received from couch while create database: %s", responseBody)
 		}
 
 		//we need to go ahead and create one
-		req, err = http.NewRequest("POST", fmt.Sprintf("%v/%v/_design/filter", COUCH_ADDR, db), nil)
-		if err != nil {
-			return nerr.Translate(err).Addf("Couldn't create request to poset new filter in %v", db)
+		responseBody, response, responseErr = jsonhttp.CreateAndExecuteJSONRequest("Create Filter Document", "PUT", fmt.Sprintf("%v/%v/_design/filter", COUCH_ADDR, db), "", headers, 30, nil)
+
+		if responseErr != nil {
+			return nerr.Translate(responseErr).Addf("Couldn't create filter document in db %v", db)
 		}
 
-		req.Header.Add("Content-Type", "application/json")
-		req.SetBasicAuth(COUCH_USER, COUCH_PASS)
-		resp, err = c.Do(req)
-		if err != nil {
-			return nerr.Translate(err).Addf("Couldn't make request to post new filter in %v", db)
-		}
+		l.L.Debugf("Response received from couch while posting new filter: %s", responseBody)
 
-		defer resp.Body.Close()
-		createFilterResponseBody, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nerr.Translate(err).Addf("Couldn't read response from couch server while posting new filter in %v", db)
-		}
-
-		l.L.Debugf("Response received from couch while posting new filter: %s", createFilterResponseBody)
-
-		if resp.StatusCode/100 != 2 {
+		if response.StatusCode/100 != 2 {
 			return nerr.Create(fmt.Sprintf("Non-200 response code when creating filter for %v", db), "response-received")
 		}
 	}
 
 	return nil
-
 }
 
 func CheckReplication(replID string) (string, *nerr.E) {
