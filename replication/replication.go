@@ -131,7 +131,8 @@ func ScheduleReplication(db string, continuous bool) *nerr.E {
 	l.L.Debugf("Replication state: %v", status)
 
 	//check to make sure the filter is there
-	filterName := fmt.Sprintf("filters/%v", replID)
+	//filterName := fmt.Sprintf("filters/%v", replID)
+	filterName := "deletedfilter"
 	/*
 		err = CheckForReplicationFilter(db)
 
