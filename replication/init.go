@@ -154,6 +154,7 @@ func CheckDB(db string) *nerr.E {
 	}
 
 	req.SetBasicAuth(os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
+	l.L.Debugf("%s, %s", os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
 	c := http.Client{}
 	resp, err := c.Do(req)
 	if err != nil {

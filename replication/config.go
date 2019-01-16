@@ -2,11 +2,10 @@ package replication
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
-	"github.com/byuoitav/common/db/couch"
+	"github.com/byuoitav/common/jsonhttp"
 	l "github.com/byuoitav/common/log"
 	"github.com/byuoitav/common/nerr"
 )
@@ -80,9 +79,20 @@ func GetConfigDoc(id string) (ReplicationConfig, *nerr.E) {
 	addr := fmt.Sprintf("%v/%v", REPL_CONFIG_DB, id)
 	l.L.Debugf("Sending request to %v", addr)
 
-	db := couch.NewDB(os.Getenv("COUCH_ADDR"), os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
+	/*db := couch.NewDB(os.Getenv("COUCH_ADDR"), os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
 	err := db.MakeRequest("GET", fmt.Sprintf("%v/%v", REPL_CONFIG_DB, id), "application/json", []byte{}, &toReturn)
 	if err != nil {
+		return toReturn, nerr.Translate(err).Addf("Couldn't get the configuration document %v", id)
+	}*/
+
+	headers := map[string]string{
+		"Authorization": "Basic " + jsonhttp.BasicAuth(COUCH_USER, COUCH_PASS),
+	}
+
+	_, _, err := jsonhttp.CreateAndExecuteJSONRequest("Retrieve Config Document "+id, "GET", fmt.Sprintf("%v/%v/%v", COUCH_ADDR, REPL_CONFIG_DB, id), "", headers, 30, &toReturn)
+
+	if err != nil {
+		l.L.Debugf("Unable to retrieve config document %v", id)
 		return toReturn, nerr.Translate(err).Addf("Couldn't get the configuration document %v", id)
 	}
 
