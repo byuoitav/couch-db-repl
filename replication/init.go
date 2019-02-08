@@ -123,7 +123,6 @@ func ReplicateReplicationConfig() {
 		//waiting for the config db to replicate down
 		replID := fmt.Sprintf("auto_%v", REPL_CONFIG_DB)
 		state, err := CheckReplication(replID)
-
 		if err != nil {
 			l.L.Debugf("%s", err.Stack)
 			l.L.Fatal(err.Add("replication-config database replication failed, cannot start replication"))

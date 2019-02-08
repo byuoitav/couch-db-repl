@@ -283,6 +283,8 @@ func CheckReplication(replID string) (string, *nerr.E) {
 		return "failed", nil
 	case "crashed":
 		return "crashed", nil
+	case "initializing":
+		return "initializing", nil
 	default:
 		l.L.Errorf("Replication state for %v is in a bad state %v", replID, state.State)
 		return state.State, nerr.Create(fmt.Sprintf("Replication of %v is in state %v", replID, state.State), "couch-repl-error")
