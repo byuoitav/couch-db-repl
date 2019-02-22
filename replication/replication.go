@@ -38,7 +38,7 @@ type couchReplicationPayload struct {
 	Filter       string      `json:"filter"`
 }
 
-var PI_HOSTNAME = os.Getenv("PI_HOSTNAME")
+var PI_HOSTNAME = os.Getenv("SYSTEM_ID")
 var COUCH_ADDR = os.Getenv("COUCH_ADDR")
 var COUCH_USER = os.Getenv("COUCH_USER")
 var COUCH_PASS = os.Getenv("COUCH_PASS")

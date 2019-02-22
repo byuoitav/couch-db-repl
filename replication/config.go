@@ -42,8 +42,7 @@ func GetConfig(hostname string) (HostConfig, *nerr.E) {
 	//check to see if the room has one
 	config, err := GetConfigDoc(fmt.Sprintf("%v-%v", splitver[0], splitver[1]))
 	if err != nil {
-
-		if err.Type == "*couch.NotFound" {
+		if err.Type == "*couch.NotFound" || strings.Contains(err.Error(), "not_found") {
 			l.L.Debug("Couldn't get a room specific configuration, getting the default")
 			//get the default
 			config, err = GetConfigDoc("default")
@@ -51,11 +50,11 @@ func GetConfig(hostname string) (HostConfig, *nerr.E) {
 				return toReturn, nerr.Translate(err).Add("Couldn't get the default or room specific configuration")
 			}
 		} else {
-
 			return toReturn, err.Add("Couldn't get the configuration")
 		}
 
 	}
+
 	//now we go through and check all of the rules one by one to see which matches my hostname
 	for _, rule := range config.Rules {
 		match, err := regexp.MatchString(rule.Hostname, hostname)
@@ -67,6 +66,7 @@ func GetConfig(hostname string) (HostConfig, *nerr.E) {
 			return rule, nil
 		}
 	}
+
 	return toReturn, nerr.Create(fmt.Sprintf("Couldn't match a rule for %v in the config %v", hostname, config.ID), "not-found")
 }
 

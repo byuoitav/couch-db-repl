@@ -73,7 +73,6 @@ func init() {
 	DefaultReplConfig.Database = REPL_CONFIG_DB
 	DefaultReplConfig.Continuous = false
 	DefaultReplConfig.Interval = 300
-
 }
 
 const (
@@ -94,7 +93,7 @@ func Start() *nerr.E {
 	ReplicateReplicationConfig()
 
 	//Config database is there. Check for a document for this room, if none, get the default
-	config, err := GetConfig(os.Getenv("PI_HOSTNAME"))
+	config, err := GetConfig(os.Getenv("SYSTEM_ID"))
 	if err != nil {
 		return err.Add("Error getting the replication config while starting")
 	}
@@ -165,6 +164,7 @@ func CheckDB(db string) *nerr.E {
 		l.L.Debug("Database Present. Returning")
 		return nil
 	}
+
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nerr.Translate(err).Addf("Couldn't read error response from couch server while checking for DB %v", db)
