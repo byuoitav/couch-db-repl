@@ -75,6 +75,7 @@ func RunRegular(config DatabaseConfig, configChannel chan DatabaseConfig, wg *sy
 
 func RunConfig(curConfig HostConfig, config DatabaseConfig, wg *sync.WaitGroup, configChannels map[string]chan DatabaseConfig) *nerr.E {
 
+	log.L.Infof("Running config for %s", config.Database)
 	savedInterval := 0
 
 	defer wg.Done()
@@ -110,11 +111,11 @@ func RunConfig(curConfig HostConfig, config DatabaseConfig, wg *sync.WaitGroup, 
 			}
 		}
 		//we need to get our configuration
-		newGlobalConf, err := GetConfig(os.Getenv("PI_HOSTNAME"))
+		newGlobalConf, err := GetConfig(os.Getenv("SYSTEM_ID"))
 
 		if err != nil {
 			//if this gets triggered it means someone deleted both the default and room specific configuration for this room.
-			log.L.Errorf("Couldn't get the configuration for %v", os.Getenv("PI_HOSTNAME"))
+			log.L.Errorf("Couldn't get the configuration for %v", os.Getenv("SYSTEM_ID"))
 			if config.Interval == 0 {
 				savedInterval = config.Interval
 				config.Interval = 60
