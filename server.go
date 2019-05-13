@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/byuoitav/authmiddleware"
+	"github.com/byuoitav/common"
 	"github.com/byuoitav/common/log"
 	"github.com/byuoitav/couch-db-repl/handlers"
 	"github.com/byuoitav/couch-db-repl/replication"
@@ -22,7 +23,7 @@ func main() {
 	}()
 
 	port := ":7012"
-	router := echo.New()
+	router := common.NewRouter()
 
 	router.Pre(middleware.RemoveTrailingSlash())
 	router.Use(middleware.CORS())
