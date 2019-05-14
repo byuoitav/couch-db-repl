@@ -58,7 +58,7 @@ deps:
 	$(GOGET) -d -v
 ifneq "$(BRANCH)" "master"
 	# put vendored packages in here
-	$(VENDOR) github.com/byuoitav/authmiddleware
+	gvt fetch -tag v3.3.10 github.com/labstack/echo
 	$(VENDOR) github.com/byuoitav/common
 endif
 
