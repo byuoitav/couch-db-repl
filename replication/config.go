@@ -34,7 +34,6 @@ type DatabaseConfig struct {
 
 func GetConfig(hostname string) (HostConfig, *nerr.E) {
 	toReturn := HostConfig{}
-
 	l.L.Debugf("Looking for a config for %v", hostname)
 
 	//get the room config
@@ -72,15 +71,15 @@ func GetConfig(hostname string) (HostConfig, *nerr.E) {
 }
 
 func GetConfigDoc(id string) (ReplicationConfig, *nerr.E) {
-
 	l.L.Debugf("Getting config document %v", id)
-
 	toReturn := ReplicationConfig{}
 
 	addr := fmt.Sprintf("%v/%v", REPL_CONFIG_DB, id)
 	l.L.Debugf("Sending request to %v", addr)
 
 	db := couch.NewDB(os.Getenv("COUCH_ADDR"), os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
+	db.IgnoreReadyChecks = true
+
 	err := db.MakeRequest("GET", fmt.Sprintf("%v/%v", REPL_CONFIG_DB, id), "application/json", []byte{}, &toReturn)
 	if err != nil {
 		return toReturn, nerr.Translate(err).Addf("Couldn't get the configuration document %v", id)
