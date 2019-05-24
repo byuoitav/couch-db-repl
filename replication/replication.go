@@ -35,7 +35,7 @@ type couchReplicationPayload struct {
 	CreateTarget bool        `json:"create_target"`
 	Continuous   bool        `json:"continous"`
 	Selector     interface{} `json:"selector,omitempty"`
-	Filter       string      `json:"filter"`
+	Filter       string      `json:"filter,omitempty"`
 }
 
 var PI_HOSTNAME = os.Getenv("SYSTEM_ID")
@@ -133,7 +133,7 @@ func ScheduleReplication(db string, continuous bool) *nerr.E {
 	//check to make sure the filter is there
 	//filterName := fmt.Sprintf("filters/%v", replID)
 	//filterName := "filters/deletedfilter"
-	filterName := ""
+	//filterName := ""
 	/*
 		err = CheckForReplicationFilter(db)
 
@@ -149,7 +149,7 @@ func ScheduleReplication(db string, continuous bool) *nerr.E {
 		Target:       fmt.Sprintf("%v/%v", insertLocalCreds(COUCH_ADDR), db),
 		CreateTarget: true,
 		Continuous:   continuous,
-		Filter:       filterName,
+		//Filter:       filterName,
 	}
 
 	err = postReplication(rdoc)
