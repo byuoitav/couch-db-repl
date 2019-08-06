@@ -73,7 +73,6 @@ func init() {
 	DefaultReplConfig.Database = REPL_CONFIG_DB
 	DefaultReplConfig.Continuous = false
 	DefaultReplConfig.Interval = 300
-
 }
 
 const (
@@ -91,49 +90,57 @@ func Start() *nerr.E {
 		return nil
 	}
 
-	err := CheckDB(REPL_CONFIG_DB)
-
-	//check to see if the configdb is already down
-	if err != nil {
-		err := ScheduleReplication(REPL_CONFIG_DB, false)
-		if err != nil {
-			l.L.Debugf("%s", err.Stack)
-			l.L.Fatal(err.Add("_replication-config database isn't present and we can't start replication"))
-		}
-
-		tries := 0
-		for {
-			log.Printf("Waiting for replication to succeed")
-
-			if tries >= WAIT_LIMIT {
-				l.L.Fatal("Exceeded retry limit for pulling down the replication config database.")
-			}
-			//waiting for the config db to replicate down
-			state, err := CheckReplication(REPL_CONFIG_DB)
-			if err != nil {
-				l.L.Debugf("%s", err.Stack)
-				l.L.Fatal(err.Add("_replication-config database replication failed, cannot start replication"))
-			}
-			if state != "completed" {
-				break
-			}
-			if state == "failed" {
-				l.L.Fatal("Replication of replication config database has failed.")
-			}
-			time.Sleep(1 * time.Second)
-			tries++
-		}
-	}
+	ReplicateReplicationConfig()
 
 	//Config database is there. Check for a document for this room, if none, get the default
-	config, err := GetConfig(os.Getenv("PI_HOSTNAME"))
+	config, err := GetConfig(os.Getenv("SYSTEM_ID"))
 	if err != nil {
 		return err.Add("Error getting the replication config while starting")
 	}
 
+	l.L.Debugf("Configuration document retrieved, %s replications retrieved", len(config.Replications))
+
 	//we have the config - we can go ahead and schedule the updates
 	StartReplicationJobs(config)
 	return nil
+}
+
+func ReplicateReplicationConfig() {
+	err := ScheduleReplication(REPL_CONFIG_DB, false)
+	if err != nil {
+		l.L.Debugf("%s", err.Stack)
+		l.L.Fatal(err.Add("replication-config database isn't present and we can't start replication"))
+	}
+
+	tries := 0
+	for {
+		l.L.Debugf("Waiting for replication for replication-config to succeed")
+
+		if tries >= WAIT_LIMIT {
+			l.L.Fatal("Exceeded retry limit for pulling down the replication-config database.")
+		}
+		//waiting for the config db to replicate down
+		replID := fmt.Sprintf("auto_%v", REPL_CONFIG_DB)
+		state, err := CheckReplication(replID)
+		if err != nil {
+			l.L.Debugf("%s", err.Stack)
+			l.L.Fatal(err.Add("replication-config database replication failed, cannot start replication"))
+		}
+
+		l.L.Debugf("State of %s db is %s", REPL_CONFIG_DB, state)
+
+		if state == "completed" {
+			l.L.Debugf("replication-config completed")
+			break
+		}
+
+		if state == "failed" {
+			l.L.Fatal("Replication of replication config database has failed.")
+		}
+
+		time.Sleep(1 * time.Second)
+		tries++
+	}
 }
 
 func CheckDB(db string) *nerr.E {
@@ -145,6 +152,7 @@ func CheckDB(db string) *nerr.E {
 	}
 
 	req.SetBasicAuth(os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
+	l.L.Debugf("%s, %s", os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
 	c := http.Client{}
 	resp, err := c.Do(req)
 	if err != nil {
@@ -156,6 +164,7 @@ func CheckDB(db string) *nerr.E {
 		l.L.Debug("Database Present. Returning")
 		return nil
 	}
+
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nerr.Translate(err).Addf("Couldn't read error response from couch server while checking for DB %v", db)

@@ -2,11 +2,10 @@ package replication
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
-	"github.com/byuoitav/common/db/couch"
+	"github.com/byuoitav/common/jsonhttp"
 	l "github.com/byuoitav/common/log"
 	"github.com/byuoitav/common/nerr"
 )
@@ -42,8 +41,7 @@ func GetConfig(hostname string) (HostConfig, *nerr.E) {
 	//check to see if the room has one
 	config, err := GetConfigDoc(fmt.Sprintf("%v-%v", splitver[0], splitver[1]))
 	if err != nil {
-
-		if err.Type == "*couch.NotFound" {
+		if err.Type == "*couch.NotFound" || strings.Contains(err.Error(), "not_found") {
 			l.L.Debug("Couldn't get a room specific configuration, getting the default")
 			//get the default
 			config, err = GetConfigDoc("default")
@@ -51,11 +49,11 @@ func GetConfig(hostname string) (HostConfig, *nerr.E) {
 				return toReturn, nerr.Translate(err).Add("Couldn't get the default or room specific configuration")
 			}
 		} else {
-
 			return toReturn, err.Add("Couldn't get the configuration")
 		}
 
 	}
+
 	//now we go through and check all of the rules one by one to see which matches my hostname
 	for _, rule := range config.Rules {
 		match, err := regexp.MatchString(rule.Hostname, hostname)
@@ -67,6 +65,7 @@ func GetConfig(hostname string) (HostConfig, *nerr.E) {
 			return rule, nil
 		}
 	}
+
 	return toReturn, nerr.Create(fmt.Sprintf("Couldn't match a rule for %v in the config %v", hostname, config.ID), "not-found")
 }
 
@@ -77,11 +76,20 @@ func GetConfigDoc(id string) (ReplicationConfig, *nerr.E) {
 	addr := fmt.Sprintf("%v/%v", REPL_CONFIG_DB, id)
 	l.L.Debugf("Sending request to %v", addr)
 
-	db := couch.NewDB(os.Getenv("COUCH_ADDR"), os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
-	db.IgnoreReadyChecks = true
-
+	/*db := couch.NewDB(os.Getenv("COUCH_ADDR"), os.Getenv("COUCH_USER"), os.Getenv("COUCH_PASS"))
 	err := db.MakeRequest("GET", fmt.Sprintf("%v/%v", REPL_CONFIG_DB, id), "application/json", []byte{}, &toReturn)
 	if err != nil {
+		return toReturn, nerr.Translate(err).Addf("Couldn't get the configuration document %v", id)
+	}*/
+
+	headers := map[string]string{
+		"Authorization": "Basic " + jsonhttp.BasicAuth(COUCH_USER, COUCH_PASS),
+	}
+
+	_, _, err := jsonhttp.CreateAndExecuteJSONRequest("Retrieve Config Document "+id, "GET", fmt.Sprintf("%v/%v/%v", COUCH_ADDR, REPL_CONFIG_DB, id), "", headers, 30, &toReturn)
+
+	if err != nil {
+		l.L.Debugf("Unable to retrieve config document %v", id)
 		return toReturn, nerr.Translate(err).Addf("Couldn't get the configuration document %v", id)
 	}
 
