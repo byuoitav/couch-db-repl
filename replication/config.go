@@ -33,7 +33,6 @@ type DatabaseConfig struct {
 
 func GetConfig(hostname string) (HostConfig, *nerr.E) {
 	toReturn := HostConfig{}
-
 	l.L.Debugf("Looking for a config for %v", hostname)
 
 	//get the room config
@@ -71,9 +70,7 @@ func GetConfig(hostname string) (HostConfig, *nerr.E) {
 }
 
 func GetConfigDoc(id string) (ReplicationConfig, *nerr.E) {
-
 	l.L.Debugf("Getting config document %v", id)
-
 	toReturn := ReplicationConfig{}
 
 	addr := fmt.Sprintf("%v/%v", REPL_CONFIG_DB, id)
