@@ -27,12 +27,16 @@ func main() {
 
 	secure.GET("/replication/start", handlers.ReplicateNow)
 
-	server := http.Server{
+	server := &http.Server{
 		Addr:           port,
 		MaxHeaderBytes: 1024 * 10,
 	}
 
-	go router.StartServer(&server)
+	go func() {
+		if err := router.StartServer(server); err != nil {
+			log.L.Fatal(err)
+		}
+	}()
 
 	replication.Init()
 	if err := replication.Start(); err != nil {

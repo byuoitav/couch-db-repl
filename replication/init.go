@@ -17,7 +17,7 @@ import (
 var DefaultReplConfig DatabaseConfig
 
 func Init() {
-	l.SetLevel("debug")
+	l.SetLevel("debug") // nolint:errcheck
 
 	addr := os.Getenv("COUCH_ADDR")
 	if len(addr) < 1 {
@@ -116,8 +116,7 @@ func Start() *nerr.E {
 	l.L.Debugf("Configuration document retrieved, %s replications retrieved", len(config.Replications))
 
 	//we have the config - we can go ahead and schedule the updates
-	StartReplicationJobs(config)
-	return nil
+	return StartReplicationJobs(config)
 }
 
 func ReplicateReplicationConfig() {
