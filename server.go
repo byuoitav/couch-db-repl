@@ -13,15 +13,6 @@ import (
 )
 
 func main() {
-
-	//start replication
-	go func() {
-		err := replication.Start()
-		if err != nil {
-			log.L.Fatal(err)
-		}
-	}()
-
 	port := ":7012"
 	router := common.NewRouter()
 
@@ -41,5 +32,10 @@ func main() {
 		MaxHeaderBytes: 1024 * 10,
 	}
 
-	router.StartServer(&server)
+	go router.StartServer(&server)
+
+	replication.Init()
+	if err := replication.Start(); err != nil {
+		log.L.Fatal(err)
+	}
 }
