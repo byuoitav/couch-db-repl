@@ -42,15 +42,13 @@ func RunRegular(config DatabaseConfig, configChannel chan DatabaseConfig, wg *sy
 
 		log.L.Debugf("Done for %v. Will run again in %v seconds", config.Database, config.Interval)
 		if config.Continuous && !retry {
-			select {
-			case newConf, closed := <-configChannel:
-				config = newConf
-				if !closed {
-					log.L.Warnf("Replication for %v is ending", config.Database)
-					deleteReplication(fmt.Sprintf("auto_%v", config.Database))
+			newConf, closed := <-configChannel
+			config = newConf
+			if !closed {
+				log.L.Warnf("Replication for %v is ending", config.Database)
+				deleteReplication(fmt.Sprintf("auto_%v", config.Database)) // nolint:errcheck
 
-					return nil
-				}
+				return nil
 			}
 		} else {
 			//start a timer
@@ -59,7 +57,7 @@ func RunRegular(config DatabaseConfig, configChannel chan DatabaseConfig, wg *sy
 			case newConf, closed := <-configChannel:
 				if !closed {
 					log.L.Warnf("Replication for %v is ending", config.Database)
-					deleteReplication(fmt.Sprintf("auto_%v", config.Database))
+					deleteReplication(fmt.Sprintf("auto_%v", config.Database)) // nolint:errcheck
 
 					return nil
 				}
@@ -70,7 +68,6 @@ func RunRegular(config DatabaseConfig, configChannel chan DatabaseConfig, wg *sy
 			}
 		}
 	}
-	return nil
 }
 
 func RunConfig(curConfig HostConfig, config DatabaseConfig, wg *sync.WaitGroup, configChannels map[string]chan DatabaseConfig) *nerr.E {
@@ -104,12 +101,10 @@ func RunConfig(curConfig HostConfig, config DatabaseConfig, wg *sync.WaitGroup, 
 			}
 			log.L.Error(err.Addf("Issue scheduling replication for %v. Will try again in %v seconds", config.Database, config.Interval))
 
-			t := time.NewTimer(time.Duration(config.Interval) * time.Second)
-			select {
-			case <-t.C:
-				continue
-			}
+			time.Sleep(time.Duration(config.Interval) * time.Second)
+			continue
 		}
+
 		//we need to get our configuration
 		newGlobalConf, err := GetConfig(os.Getenv("SYSTEM_ID"))
 
@@ -128,7 +123,8 @@ func RunConfig(curConfig HostConfig, config DatabaseConfig, wg *sync.WaitGroup, 
 				//we're the same
 				changes = false
 			}
-			if changes == true {
+
+			if changes {
 				log.L.Debugf("%v === %v", newGlobalConf, curConfig)
 
 				curConfig = newGlobalConf
@@ -158,11 +154,7 @@ func RunConfig(curConfig HostConfig, config DatabaseConfig, wg *sync.WaitGroup, 
 		//start a timer
 		log.L.Debugf("Done for %v. Will run again in %v seconds", config.Database, config.Interval)
 
-		t := time.NewTimer(time.Duration(config.Interval) * time.Second)
-		select {
-		case <-t.C:
-			break
-		}
+		time.Sleep(time.Duration(config.Interval) * time.Second)
 	}
 }
 
@@ -187,16 +179,15 @@ func UpdateConfigurations(config HostConfig, channels map[string]chan DatabaseCo
 
 			//create a channel
 			newChan := make(chan DatabaseConfig, 1)
-			go RunRegular(c, newChan, wg)
+			go RunRegular(c, newChan, wg) // nolint:errcheck
 			channels[c.Database] = newChan
 		}
-
 	}
 
 	//now we need to go stop any replications that are no longer in the config
 	for k, v := range channels {
 		if _, ok := valsInConfig[k]; !ok {
-			log.L.Infof("stoppping replication job for %v", k)
+			log.L.Infof("stopping replication job for %v", k)
 			close(v)
 			delete(channels, k)
 		}
@@ -207,7 +198,6 @@ func UpdateConfigurations(config HostConfig, channels map[string]chan DatabaseCo
 }
 
 func StartReplicationJobs(config HostConfig) *nerr.E {
-
 	wg := &sync.WaitGroup{}
 	channelMap := make(map[string]chan DatabaseConfig)
 	UpdateConfigurations(config, channelMap, wg)
@@ -216,12 +206,12 @@ func StartReplicationJobs(config HostConfig) *nerr.E {
 	for _, c := range config.Replications {
 		if c.Database == REPL_CONFIG_DB {
 			found = true
-			go RunConfig(config, c, wg, channelMap)
+			go RunConfig(config, c, wg, channelMap) // nolint:errcheck
 		}
 	}
 	if !found {
 		//run using the default
-		go RunConfig(config, DefaultReplConfig, wg, channelMap)
+		go RunConfig(config, DefaultReplConfig, wg, channelMap) // nolint:errcheck
 	}
 
 	wg.Wait()

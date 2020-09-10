@@ -61,7 +61,7 @@ func ReplicateNow() *nerr.E {
 
 	//we have the config - we can go ahead and schedule the updates
 	for i := range config.Replications {
-		ScheduleReplication(config.Replications[i].Database, false)
+		ScheduleReplication(config.Replications[i].Database, false) // nolint:errcheck
 	}
 
 	return nil

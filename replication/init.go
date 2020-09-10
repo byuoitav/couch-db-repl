@@ -16,30 +16,46 @@ import (
 
 var DefaultReplConfig DatabaseConfig
 
-func init() {
-	l.SetLevel("debug")
+func Init() {
+	l.SetLevel("debug") // nolint:errcheck
 
 	addr := os.Getenv("COUCH_ADDR")
 	if len(addr) < 1 {
 		l.L.Fatal("No COUCH_ADDR specified")
 	}
-	if len(os.Getenv("COUCH_REPL_ADDR")) < 1 || len(os.Getenv("COUCH_REPL_ADDR")) < 1 || len(os.Getenv("COUCH_REPL_ADDR")) < 1 {
+
+	if len(os.Getenv("COUCH_REPL_ADDR")) < 1 || len(os.Getenv("COUCH_REPL_USER")) < 1 || len(os.Getenv("COUCH_REPL_PASS")) < 1 {
 		l.L.Fatal("Remote environment variables are not declared.")
 	}
 
 	l.L.Infof("Checking to see if couch server is up at %v", addr)
-	//wait until the couch server is running
+
+	// wait until we can reach remote couch server
 	for {
-		resp, err := http.Get(addr)
-		//resp, err := http.Get("http://www.google.com")
+		resp, err := http.Get(os.Getenv("COUCH_REPL_ADDR"))
 		if err != nil {
-			l.L.Info("Waiting for Couch to start...")
+			l.L.Info("Waiting for remote couch to start...")
 			l.L.Infof("Error: %v", err.Error())
-			time.Sleep(3 * time.Second)
+			time.Sleep(10 * time.Second)
 			continue
 		} else {
 			resp.Body.Close()
-			l.L.Debug("Couch is up.")
+			l.L.Debug("Remote couch is up.")
+			break
+		}
+	}
+
+	// wait until the local couch server is running
+	for {
+		resp, err := http.Get(addr)
+		if err != nil {
+			l.L.Info("Waiting for local couch to start...")
+			l.L.Infof("Error: %v", err.Error())
+			time.Sleep(10 * time.Second)
+			continue
+		} else {
+			resp.Body.Close()
+			l.L.Debug("Local couch is up.")
 			break
 		}
 	}
@@ -69,7 +85,6 @@ func init() {
 	}
 
 	//setup the default config
-
 	DefaultReplConfig.Database = REPL_CONFIG_DB
 	DefaultReplConfig.Continuous = false
 	DefaultReplConfig.Interval = 300
@@ -101,8 +116,7 @@ func Start() *nerr.E {
 	l.L.Debugf("Configuration document retrieved, %s replications retrieved", len(config.Replications))
 
 	//we have the config - we can go ahead and schedule the updates
-	StartReplicationJobs(config)
-	return nil
+	return StartReplicationJobs(config)
 }
 
 func ReplicateReplicationConfig() {

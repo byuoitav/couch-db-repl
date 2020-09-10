@@ -13,15 +13,6 @@ import (
 )
 
 func main() {
-
-	//start replication
-	go func() {
-		err := replication.Start()
-		if err != nil {
-			log.L.Fatal(err)
-		}
-	}()
-
 	port := ":7012"
 	router := common.NewRouter()
 
@@ -36,10 +27,19 @@ func main() {
 
 	secure.GET("/replication/start", handlers.ReplicateNow)
 
-	server := http.Server{
+	server := &http.Server{
 		Addr:           port,
 		MaxHeaderBytes: 1024 * 10,
 	}
 
-	router.StartServer(&server)
+	go func() {
+		if err := router.StartServer(server); err != nil {
+			log.L.Fatal(err)
+		}
+	}()
+
+	replication.Init()
+	if err := replication.Start(); err != nil {
+		log.L.Fatal(err)
+	}
 }
