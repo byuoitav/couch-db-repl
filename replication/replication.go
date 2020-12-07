@@ -38,6 +38,14 @@ type couchReplicationPayload struct {
 	Filter       string      `json:"filter,omitempty"`
 }
 
+type idSelector struct {
+	ID regexQuery `json:"_id"`
+}
+
+type regexQuery struct {
+	Regex string `json:"$regex"`
+}
+
 var PI_HOSTNAME = os.Getenv("SYSTEM_ID")
 var COUCH_ADDR = os.Getenv("COUCH_ADDR")
 var COUCH_USER = os.Getenv("COUCH_USER")
@@ -150,6 +158,15 @@ func ScheduleReplication(db string, continuous bool) *nerr.E {
 		CreateTarget: true,
 		Continuous:   continuous,
 		//Filter:       filterName,
+	}
+
+	// Filter devices table for only room specific devices
+	if db == "devices" {
+		rdoc.Selector = idSelector{
+			ID: regexQuery{
+				Regex: fmt.Sprintf("%s-", PI_HOSTNAME),
+			},
+		}
 	}
 
 	err = postReplication(rdoc)
