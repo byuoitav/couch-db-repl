@@ -162,9 +162,10 @@ func ScheduleReplication(db string, continuous bool) *nerr.E {
 
 	// Filter devices table for only room specific devices
 	if db == "devices" {
+		pieces := strings.Split(PI_HOSTNAME, "-")
 		rdoc.Selector = idSelector{
 			ID: regexQuery{
-				Regex: fmt.Sprintf("%s-", PI_HOSTNAME),
+				Regex: fmt.Sprintf("%s-%s-", pieces[0], pieces[1]),
 			},
 		}
 	}
